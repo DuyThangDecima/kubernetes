@@ -1,0 +1,97 @@
+﻿1. Kubernetes là gì?
+Kubernetes là platform open-source với các chức năng: 
+-automatic deployment: (Em nghĩ nó tự động triển khai 1 container nào đó khi cần thiết)
+-scale
+-operation
+thông qua cluster host
+
+Ưu điểm:
+- triển khai ứng dụng nhanh và predictably 
+- Scale ứng dụng
+- Tối ưu hóa phần cứng
+
+
+2. Tại sao phải dùng container?
+
+Cách cũ (old way)cài đặt một ứng dụng là cài đặt trên máy chủ (host) được quản lý bởi package manager của hệ điều hành. Dẫn đến sự nhập nhằng giữa các ứng dụng này với các ứng dụng thực thi khác, config, library và với cả máy chủ (host).Một cách khác có thể sử dụng Vms nhưng nó nặng và non-portable
+
+Cách mới (new way) để triển khai một containerdựa trên ảo hóa mức hệ điều hành (operating-system-level virtualization) hơn là ảo hóa phần cứng (hardware virtualization.). Các container sex tách bieeth với các container khác và với máy chủ(nó có filesystem riêng). Container sẽ dễ dàng hơn Vms, bởi vì tách biệt infrastructure với máy chủ
+Tổng kêt lại, container có những lợi ích như sau:
+- Tạo và triển khai ứng dụng nhanh chóng: Sử dụng image container nhanh hơn imager VMs
+- Rollback image nhanh chóng
+- Chạy ở Ubuntu RHEL, CoreOS, on-prem, Google Container Engine ... 
+
+
+
+3. Kubernetes architecture
+( chi tiết https://github.com/kubernetes/kubernetes/blob/release-1.3/docs/design/architecture.md )
+
+3.1 Kubernetes components
+- kuber-apiserver: Kubernetes API server validate và configure dữ liệu cho các api object như pods, services, replicationcontroller… API server phục vụ hoạt động REST và cung cấp front-end để các cl
+- kube-proxy: Kubernetes network proxy chạy trong mỗi node. 
+- kube-scheduler:
+- kubelet:
+- kube-controller-manager: 
+
+3.2 Master components: 
+Master components cung cấp một bảng điều khiển của cluster (the cluster’s control plane), ví dụ master components chịu trách nhiệu đưa ra các quyết định về cluster (vd schedule) , xác định và chịu trách nhiệm về các sự kiện cluster (vd tạo 1 pod mới )
+Theo lý thuyết thì master components có thế chạy ở bất ký các cluster. tuy nhiên, để dơn giản hiện tại master components được chạy trên cùng 1 máy VM , và không chạy trên user container trong máy VM này.
+- Kube-apiserver là Kubernetes API, là front-end cho Kubernetes control plane. Được thiết kế để scale horizontally
+- etcd được sử dụng như backing store. Tất cả data cluster được lưu ở đây
+- kube-controller-manager nơi các background thread xử lý các công việc trong cluster. Mỗi controller là các process tách biệt, nuhwng ddeere giảm số lượng trong hệ thống, chúng có thể gộp lại và chạy trong 1 process: Controller bao gồm: Node controller (chịu trách nhiệm thông báo và responding khi node chết); Replication Controller (chịu trách nhiệm bảo trì chính xác cá số lượng các pod ); Endpoints Controller, Service Account & Token Controllers...
+- kube-scheduler : Theo dõi một pod mới được tạo ra mà chưa được gán vào node, chọn 1 node cho nó chạy
+
+3.3 Node
+(Chi tiết http://kubernetes.io/docs/admin/node/ )
+- Node là worker machine trong kubernetes, trước gọi là Minion. Node có thể là VM hoặc physical machine, dựa vào cluster.  Mỗi node đều có service cần thiết để chạy pod và được quản lý bởi master components. Service trong node bao gồm : docker, kubelet và network proxy. 
++ docker chịu trách nhiệm về downloading image và running containers.
++ kubelet quản lý pods và các contianer, images, volumes
++ kube-proxy: Mỗi node chạy network proxy đơn giản và load balancer.
+- Node Addresses: (The usage of these fields varies depending on your cloud provider or bare metal configuration.)
++ HostName: thường không được sử dụng
++ External: Địa chỉ IP của node là extenally routable
++ Internal: địa chỉ IP của node là routable chỉ trong cluster (Generally the IP address of the node that is routable only within the cluster)
+- Node phase: Là trạng thái của node hiện tại, vòng đời của node có 3 trạng trạng thái pending, running và terminated
++ Pending: 1 node mới được tạo ra và đang chờ configure
++ Running: Node đã được congigure và được Kubernetes components đang chạy
++ Terminated: Node đã được remove khỏi cluster. 
+- Node Management: 
+Không giống như Pods và Services, node vốn không được tạo bởi Kubernetes. Nó lấy từ cloud provider hoặc từ your pool hoặc VM. Điều này có nghĩa là khi kubenetes tạo một node, nó phải tạo 1 object node, sau khi tạo sẽ check liệu node có hợp lệ hay không.
+- Node Controller: 
+Node controller là một thành phần của kubernetes master, quản lý các đối tượng node. Nó thực hiện 2 nhiệm vụ: đồng bộ (synchronization) cluster-wide node
+và quản lý vòng đời node
+3.4 Pod
+(Chi tiết http://kubernetes.io/docs/user-guide/pods/)
+
+Pod là đơn vị có thể triển khai nhỏ nhất được có thể được tạo ra và quản lý bởi Kubernet
+Một pod là một nhóm của 1 hoặc nhiều container, chia sẻ bộ nhớ. Pods thường co-located và co-schedule, chạy trên context chia sẻ
+Context của pod là tập namespace, cgroup và 
+
+Container trong pod chia sẻ địa chỉ IP và port, và có thể tìm thấy nhau qua localhost. Container có thể communicate với nhau sử dụng IPC. Container trong pod khác nhau thì cod địa chỉ ip khác nhau và không thể liên lạc quan IPC
+
+
+Giống như container, pod được coi là khá nhất thời, không lâu dài. Vòng đời của pod thì có những giai đoạn sau: 
+- pendding: được chấp nhật bởi hệ thống nhưng chưa có container được tạo ra. Là cái khoảng thời gian trước khi schedule hoặc thời gian download image qua internet
+- Running: Tất cả các container được taọ ra và có ít nhất 1 container đang chạy
+- Succeeded: Tất cả các container trong pod terminated in success (e hiểu là hoàn thành công việc) và sẽ không restart
+- Fail: Tất các các container đã kết thúc nhưng có container  terminated in fail
+- Unknown: Trạng thái của pod không được biết, điển hình là do lỗi giao tiếp với host
+ Khi pod được tạo ra, được gán unique ID (UID), schedule duy trì trên node đến khi kết thúc hoặc xóa. Nếu mà node die, pod schedule bị xóa. 
+
+Resource sharing and communication:
+Pod có thể chia sẻ date và liên lạc giữa các bộ phận tạo nên nó.  Các application trong pod sử dụng chung network namespace (cùng ip và không gian port), và có thể tìm, liên lạc các application sử dụng localhost.
+Khi mà một container được tạo ra  trong pod, thì nó sẽ được xác định một vùng volume chia sẻ
+
+
+4. Services
+(chi tiết http://kubernetes.io/docs/user-guide/services/)
+Kubernetes pods là nhất thời, được tạo ra và kết thúc. Mỗi pod có địa chỉ ip của riêng mình, thậm chí những địa chỉ ip này không bền vững theo thời gian. Vấn đề ở đây là : Nếu 1 số pods (gọi là backend) cũng cấp 1 số function cho 1 số pods khác (gọi là front-end) ở trong cluster => làm thế nào để front-end có thể tìm vã giữ với backend
+A Kubernetes service là khái niệm trườu tượng định nghĩa một tập các pod và chính sách truy cập chúng, đôi khi được gọi là micro-service.
+Tập các pods mục tiêu được services xác định qua Label Selector 
+Với các Kubernetes-native applications, kubernetes hỗ trợ Endpoint API, thông tin sẽ updated bất cứ khi pods của service thay đổi. For non-native applications,Kubernetes hỗ trợ   a virtual-IP-based bridge to Services which redirects to the backend Pods.
+
+
+// 2 cái này em đang đọc, vẫn chưa hiểu mấy
+5. Network in kubernetes
+6. Master <-> Node Communication
+
